@@ -1,6 +1,6 @@
 # Projects:
 
-- Coding sample for the Transformer model using just NumPy:
+- Sample code for the Transformer model using just NumPy:
   - `transformer_project.py` classes: 
     - `Transfomer()`: The main Transformer model  
     - `helper()`: The use of different algorithms and data structures (e.g., quickselect, Trie, max heap/priority queue) for some simple NLP metrics. 
