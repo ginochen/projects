@@ -9,7 +9,7 @@ class Transformer(object):
         Two sub-layers 1) multi-head attention and 2) fully connected layer. 
         A residual connection is applied to each of the two sub-layers, followed by layer normalization.
     Decoder:
-        The same two sub-layers and an addition layer 3) multi-head attention over the output of the encoder stack.
+        The same two sub-layers "with masking" and an addition layer 3) multi-head attention over the output of the encoder stack.
 
       
     The NN() class can actually initiate Numpy neural network training, just haven't got time to merge it with the Transformer().
