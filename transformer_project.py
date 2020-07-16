@@ -1,7 +1,9 @@
 import numpy as np
 class Transformer(object):
     '''
-    Encoder and Decoder with bi-directional convolutional multi-head attention is the main innovation of the Transformer model.
+    Encoder and Decoder with bi-directional CNN multi-head attention is the main innovation of the Transformer model.
+
+    A secondary important feature is the use of positional encoding to mark the position of each word in a sentence.
 
     Encoder:
         Two sub-layers 1) multi-head attention and 2) fully connected layer. 
