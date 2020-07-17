@@ -1,18 +1,17 @@
 import numpy as np
 class Transformer(object):
     '''
-    Encoder and Decoder with bi-directional CNN multi-head attention is the main innovation of the Transformer model.
-
-    Another innovation is the use of positional encoding to mark the position of each word in a sentence.
+    The innovation of Transformer model is the use of bi-directional CNN (Convolutional Neural Network) 
+    multi-head attention layers in the encoder and decoder stacks. Also the use of positional encoding 
+    to mark the position of each word in a sentence.
 
     Encoder:
         Two sub-layers 1) multi-head attention and 2) fully connected layer. 
         A residual connection is applied to each of the two sub-layers, followed by layer normalization.
     Decoder:
         The same two sub-layers "with masking" and an addition layer 3) multi-head attention over the output of the encoder stack.
-
       
-    The NN() class can actually initiate Numpy neural network training, just haven't got time to merge it with the Transformer().
+    The NN() class in NN.py can initiate Numpy neural network training, just need more time to merge with the Transformer().
     
     The helper() class is to compute NLP metrics and implement beam search.
     '''
@@ -97,6 +96,31 @@ class Transformer(object):
         Z = self._softmax((Q * K.T)/sqrt(K.shape(1)), axis=0) * V # (d_words x d_v) matrix, this is attention matrix
         return Z
 
+    def _multihead_attention(self, X, l, h=8):
+        # code for multihead attention here
+        '''
+        The multihead_attention() is for the decoder block
+
+        args: 
+          X[:d_words, :d_emb]: word embedding matrix 
+          l: layer index
+          heads: default of 8 attention heads per layer 
+          maskindex: the current word index to mask (no peeping after the current word)
+
+        return:
+          Zo[:d_words, :d_emb]: the matrix with conformed dimensions to one head after transformation using a weight matrix W_o_d 
+        
+        '''
+        Zi = []
+        for h in range(heads):
+            Zi = np.concatenate((Zi, self._attention(
+                  X, 
+                  self.W_Qe[:, :, l, h], 
+                  self.W_Ke[:, :, l, h], 
+                  self.W_Ve[:, :, l, h])), axis=2) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
+        Zo = Zi * self.Wo_e # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb, layers)
+        return Zo
+
     def _masked_multihead_attention(self, X, l, maskindex, heads=8):
         # code for masked multihead attention here
         '''
@@ -107,8 +131,9 @@ class Transformer(object):
           l: layer index
           heads: default of 8 attention heads per layer 
           maskindex: the current word index to mask (no peeping after the current word)
+
         return:
-          Zo: 
+          Zo[:d_words, :d_emb]: the matrix with conformed dimensions to one head after transformation using a weight matrix W_o_d 
         '''
 # TODO: figure out how to use maskindex during training
         mask =np.empty((self.d_words, self.d_emb))
@@ -122,29 +147,6 @@ class Transformer(object):
         Zo = Zi * self.Wo_d # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb)
         return Zo
 
-    def _multihead_attention(self, X, l, h=8):
-        # code for multihead attention here
-        '''
-        The multihead_attention() is for the decoder block
-        X[d_words, :d_emb]: the sequence word embedding matrix
-        Wo[:h*d_v, :d_emb, :layers]
-        Zi[:d_words, :h*d_v]
-        Zo[:d_words, :d_emb]
-
-        Dimensions:
-        d_v: 
-        d_emb: the embedding vector size
-        h: number of heads
-        '''
-        Zi = []
-        for h in range(heads):
-            Zi = np.concatenate((Zi, self._attention(
-                  X, 
-                  self.W_Qe[:, :, l, h], 
-                  self.W_Ke[:, :, l, h], 
-                  self.W_Ve[:, :, l, h])), axis=2) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
-        Zo = Zi * self.Wo_e # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb)
-        return Zo
 
     def _layer_norm(self,M):
         '''
@@ -164,6 +166,12 @@ class Transformer(object):
         '''
         Encoder consists of 6 layers, each layer has these sublayers:
          position encoder -> multihead attention -> residual -> layernorm -> feed forward 
+        
+        args: 
+          X[:d_words, :d_emb]: sequence word embedding matrix
+        
+        return:
+          Y[:d_words, :d_emb]: this output encoder matrix will be used by _decoder()
         '''
         for l in range(layers)
             X = self._position_encoder(X, l) # (d_words, d_emb)
@@ -177,6 +185,7 @@ class Transformer(object):
     def _decoder(self, X, Ye, maskindex, layers=6):
         '''
         args:
+          X[:d_words, :d_emb]: sequence word embedding matrix
           Ye: encoder output
         return:
           Y: the probability vector of the dictionary
