@@ -148,14 +148,18 @@ class Transformer(object):
         return Zo
 
 
-    def _layer_norm(self,M):
+    def _layer_norm(self,X):
         '''
+        Instead of normalize over the batch of words, nomalize over embedding features 
+
         args: 
-           M[:d_words][:d_emb]: matrix to apply layer normalization for "stabilization"
+           X[:d_words, :d_emb]: matrix to apply layer normalization for "stabilization"
+        return:
+           X_normalized[:d_words, :d_emb]: normalized matrix
         '''
-        M_mean = np.mean(M, axis = 1)
-        M_std  = np.std(M, axis = 1)
-        M_normalized = (M-M_mean)/M_std # standard normal for now
+        X_mean = np.mean(X, axis = 1)
+        X_std  = np.std(X, axis = 1)
+        X_normalized = (X - X_mean) / X_std # standard normal for now
         return M_normalized
          
     def _position_wise_feed_forward(self, Z, W1, W2, b1, b2, l):
