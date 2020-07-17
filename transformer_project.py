@@ -202,7 +202,7 @@ class Transformer(object):
             Y = self._position_wise_feed_forward(Z, self.W1d[:,:,l], self.W2d[:,:,l], self.b1d[:,l], self.b2d[:,l],) # (d_words, d_emb)
             X = Y 
          Y = self._linear(X, self.W_o, self.b_o)
-         Y = self._softmax(Y, axis=0)
+         Y = self._softmax(Y, axis=1)
          return Y
 
     def _linear(self, X, W, b):
