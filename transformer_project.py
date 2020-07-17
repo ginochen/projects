@@ -22,12 +22,14 @@ class Transformer(object):
         self.d_words = 20 # arbitrary for now
         self.d_k = 10 # dimension of query and key vectors, arbitrary for now
         self.d_v = self.d_k # dimension of value vector, arbitrary for now
+    
     def _position_function(self, d_words, d_emb):
         P = np.empty((self.d_word, self.d_emb))
         for pos in range(self.d_words):
             for i in range(0, self.d_emb, 2):
                 P[pos, i] = math.sin(pos / (10000 ** ((2 * i)/self.d_emb)))
                 P[pos, i + 1] = math.cos(pos / (10000 ** ((2 * (i + 1))/self.d_emb)))
+        return P
 
     def _position_encoder(self, X):
         '''
@@ -45,7 +47,7 @@ class Transformer(object):
         X += P
         return X
 
-    def _attention(self, X_in):
+    def _attention(self, X, W_Q, W_K, W_V):
         '''
            The multihead_attention() is for the encoder block
            Embedding matrix:
@@ -94,32 +96,41 @@ class Transformer(object):
 
         '''               
         Q = X * W_Q # (d_words x d_k) matrix, this part can be parallelized with word fed simultaneously
-        K = X * W_K
+        K = X * W_K # (d_words x d_k) matrix
         V = X * W_V # (d_words x d_v) matrix
-        Z = softmax((Q * K.T)/sqrt(d_k)) * V # (d_words x d_v) matrix, this is attention matrix
+        Z = self._softmax((Q * K.T)/sqrt(K.shape(1)), axis=0) * V # (d_words x d_v) matrix, this is attention matrix
         return Z
 
-    def _masked_multihead_attention(self, currindex):
+    def _masked_multihead_attention(self, X, l, heads=8, currindex):
         # code for masked multihead attention here
         '''
         The _masked_multihead_attention() is for the decoder block
+        args: 
+          currindex: the current word index to mask (no peeping after the current word)
+          l: layer index
+          X[:d_words, :d_emb]: input embedding word vectors
+        return:
+          Zo: 
         '''
         mask =np.empty((self.d_words, self.d_emb))
-        mask[currindex:][:] = float('-inf')) # mask the words following the current index
+        mask[currindex:, :] = float('-inf')) # mask the words following the current index
         Zi = []
-        for _ in range(h):
-            Zi = np.concatenate((Zi,self._attention(X)+mask), axis=2) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
-        Zo = Zi * Wo # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb)
+        for h in range(heads):
+            Zi = np.concatenate((Zi, self._attention(X, 
+                  self.W_Qe[:, :, l, h], 
+                  self.W_Ke[:, :, l, h], 
+                  self.W_Ve[:, :, l, h]) + mask), axis=2) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
+        Zo = Zi * self.Wo_d # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb)
         return Zo
 
-    def _multihead_attention(self, X, h=8):
+    def _multihead_attention(self, X, l, h=8):
         # code for multihead attention here
         '''
         The multihead_attention() is for the decoder block
-        X[d_words][:d_emb]: the sequence word embedding matrix
-        Wo[:h*d_v][:d_emb]
-        Zi[:d_words][:h*d_v]
-        Zo[:d_words][:d_emb]
+        X[d_words, :d_emb]: the sequence word embedding matrix
+        Wo[:h*d_v, :d_emb, :layers]
+        Zi[:d_words, :h*d_v]
+        Zo[:d_words, :d_emb]
 
         Dimensions:
         d_v: 
@@ -127,9 +138,13 @@ class Transformer(object):
         h: number of heads
         '''
         Zi = []
-        for _ in range(h):
-            Zi = np.concatenate((Zi,self._attention(X)), axis=2) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
-        Zo = Zi * Wo # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb)
+        for h in range(heads):
+            Zi = np.concatenate((Zi, self._attention(
+                  X, 
+                  self.W_Qe[:, :, l, h], 
+                  self.W_Ke[:, :, l, h], 
+                  self.W_Ve[:, :, l, h])), axis=2) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
+        Zo = Zi * self.Wo_e # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb)
         return Zo
 
     def _layer_norm(self,M):
@@ -142,41 +157,52 @@ class Transformer(object):
         M_normalized = (M-M_mean)/M_std # standard normal for now
         return M_normalized
          
-    def _position_wise_feed_forward(self, Z, W1, W2, b1, b2):
-        Y = max(Z*W1 + b1, 0)*W2 + b2 # Z[:d_words, :d_emb], W1[:d_emb,:nodes], W2[:nodes,:emb]
+    def _position_wise_feed_forward(self, Z, W1, W2, b1, b2, l):
+        Y = max(Z*W1 + b1 0)*W2 + b2 # Z[:d_words, :d_emb], W1[:d_emb,:nodes,:layers], W2[:nodes,:emb,:layers]
         return Y
 
-    def _encoder(self, X, layers=6 ):
+    def _encoder(self, X, layers=6):
         '''
         Encoder consists of 6 layers, each layer has these sublayers:
          position encoder -> multihead attention -> residual -> layernorm -> feed forward 
         '''
-        for i in range(layers)
-            X = self._position_encoder(X) # (d_words, d_emb)
-            Z = self._multihead_attention(X) # (d_words, d_emb)
+        for l in range(layers)
+            X = self._position_encoder(X, l) # (d_words, d_emb)
+            Z = self._multihead_attention(X, l) # (d_words, d_emb)
             Z = self._layer_norm(X + Z) # X+Z is the residual connection
-            Y = self._position_wise_feed_forward(Z, W1, W2, b1, b2) # (d_words, d_emb)
+            Y = self._position_wise_feed_forward(Z, self.W1e[:,:,l], self.W2e[:,:,l], self.b1e[:,l], self.b2e[:,l], l) # (d_words, d_emb)
             Y = self._layernorm(Z + Y) # residual connection and layer normalization
             X = Y 
         return Y  # this will be fed to decoder
 
-    def _decoder(self, X, Ye):
+    def _decoder(self, X, Ye, layers=6):
         '''
         args:
           Ye: encoder output
         return:
           Y: the probability vector of the dictionary
         '''
-        for i in range(layers)
+        for l in range(layers)
             X = self._position_encoder(X) # (d_words, d_emb)
             Z1 = self._masked_multihead_attention(X) # (d_words, d_emb)
             Z2 = self._multihead_attention(Ye + Z1) # (d_words, d_emb), an additional layer for encoder attention
             Z = self._layer_norm(Z1 + Z2)
-            Y = self._position_wise_feed_forward(Z, W1, W2, b1, b2) # (d_words, d_emb)
+            Y = self._position_wise_feed_forward(Z, self.W1d[:,:,l], self.W2d[:,:,l], self.b1d[:,l], self.b2d[:,l],) # (d_words, d_emb)
             X = Y 
-         Y = self._linear(Y)
-         Y = self.softmax(Y)
+         Y = self._linear(X, self.W_o, self.b_o)
+         Y = self._softmax(Y, axis=0)
          return Y
+
+    def _linear(self, X, W, b):
+         return X*W + b
+
+    def _softmax(self, X, axis=None):
+         '''
+         args: X[:d_words, :d_words]
+         return: X[:d_words, :d_words]
+         '''
+         return np.exp(X)/sum(np.exp(X), axis=axis)
+
     def make_transformer(self, Xi, Xo):
         '''
         Xi: input embedding
@@ -192,10 +218,35 @@ class Transformer(object):
     def initialize_network(self):
         '''
          initialize the session and variables reusing the codes from NN() class methods
+         weight matrix for training
         '''
+        # encoder weigths
+        self.W_Qe = 
+        self.W_Ke = 
+        self.W_Ve = 
+        self.Wo_e = 
+        self.W1e = 
+        self.W2e = 
+        self.b1e = 
+        self.b2e = 
+
+
+        # decoder weights
+        self.W_Qd = 
+        self.W_Kd = 
+        self.W_Vd = 
+        self.Wo_d = 
+        self.W1d = 
+        self.W2d = 
+        self.b1d = 
+        self.b2d = 
+        self.W_o = 
+        self.b_o = 
+
     def run(self, args):
         # code to run a single input sequence and generate outputs
         # can use this function to both train and infer only
+
     def save_model(self):
         # save the model according to requirements
 
