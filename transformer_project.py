@@ -19,7 +19,7 @@ class Transformer(object):
     def __init__(self, param):
         # initialise parameters here (so far this is a numpy pseudo code)
         self.d_emb = 512 # the embedding dimension
-        self.d_words = 20 # arbitrary for now
+        self.d_words = 20 # number of words in a sentence, arbitrary for now
         self.d_k = 10 # dimension of query and key vectors, arbitrary for now
         self.d_v = self.d_k # dimension of value vector, arbitrary for now
     
@@ -33,13 +33,13 @@ class Transformer(object):
 
     def _position_encoder(self, X):
         '''
-        word embedding vector + positional encoding vector = word with positional encoding vector
-        X[:d_words][:d_emb]: input matrix
-        P[:d_words][:d_emb]
+        Word embedding vector + Positional encoding vector = Word with positional encoding vector
 
-        Dimensions:
-        d_words: number of words in a sentence
-        d_emb: embedding vector dimensions
+        args: 
+          X[:d_words][:d_emb]: input matrix
+        returns:  
+          X = X + P[:d_words][:d_emb]
+
         '''
         # this just assigns each word with a wave function, with words at 
         # later position with higher frequency and a smaller wavelength
@@ -49,29 +49,25 @@ class Transformer(object):
 
     def _attention(self, X, W_Q, W_K, W_V):
         '''
-           The multihead_attention() is for the encoder block
-           Embedding matrix:
-           X[:d_words][:d_emb]: embedding matrix, a list of word embedding vectors each of dimension 512. The longest sentence 
+        The multihead_attention() is for the encoder block
+        args:
+           X[:d_words, :d_emb]: embedding matrix, a list of word embedding vectors each of dimension 512. The longest sentence 
                     in the training dataset will be the list size. 
                     Notice, the encoder input and output (query, key, value) has dimension much less than 512. 
-        
-           Training weight matrices:
-           W_Q[:d_emb][:d_k]: weight matrix
-           W_K[:d_emb][:d_k]: weight matrix
-           W_V[:d_emb][:d_k]: weight matrix
-           Q[:d_words][:d_k]: output token, e.g., "la", 
-           K[:d_words][:d_k]: input token, e.g., "the", "girl"
-           V[:d_words][:d_v]: input token, e.g., 
            
-           Dimension parameters:
-           d_k: dimension of "query" and "key" vector
-           d_v: dimension of "value" vector
+           Training weight matrices:
+           W_Q[:d_emb, :d_k]: weight matrix
+           W_K[:d_emb, :d_k]: weight matrix
+           W_V[:d_emb, :d_k]: weight matrix
 
-           Notes:
-           For every output (input) position, generate a query (key) vector, each containes dimension d_k.
-           The relevance score is computed by the dot product of the query and key vector.
-           Use the softmax to normalize the relevance score (i.e., probability of the value), 
-           and do a weighted sum (average) of the values to get the final output
+        returns:
+           Z[:d_words, :d_v]: attention matrix  
+
+        Notes:
+        For every output (input) position, generate a query (key) vector, each containes dimension d_k.
+        The relevance score is computed by the dot product of the query and key vector.
+        Use the softmax to normalize the relevance score (i.e., probability of the value), 
+        and do a weighted sum (average) of the values to get the final output
 
         I am applying matrix form in the real code, but
         here are the codes to visualize how each word gets 
@@ -101,19 +97,22 @@ class Transformer(object):
         Z = self._softmax((Q * K.T)/sqrt(K.shape(1)), axis=0) * V # (d_words x d_v) matrix, this is attention matrix
         return Z
 
-    def _masked_multihead_attention(self, X, l, heads=8, currindex):
+    def _masked_multihead_attention(self, X, l, maskindex, heads=8):
         # code for masked multihead attention here
         '''
         The _masked_multihead_attention() is for the decoder block
+
         args: 
-          currindex: the current word index to mask (no peeping after the current word)
-          l: layer index
           X[:d_words, :d_emb]: input embedding word vectors
+          l: layer index
+          heads: default of 8 attention heads per layer 
+          maskindex: the current word index to mask (no peeping after the current word)
         return:
           Zo: 
         '''
+# TODO: figure out how to use maskindex during training
         mask =np.empty((self.d_words, self.d_emb))
-        mask[currindex:, :] = float('-inf')) # mask the words following the current index
+        mask[maskindex:, :] = float('-inf')) # mask the words following the current maskindex
         Zi = []
         for h in range(heads):
             Zi = np.concatenate((Zi, self._attention(X, 
@@ -175,7 +174,7 @@ class Transformer(object):
             X = Y 
         return Y  # this will be fed to decoder
 
-    def _decoder(self, X, Ye, layers=6):
+    def _decoder(self, X, Ye, maskindex, layers=6):
         '''
         args:
           Ye: encoder output
@@ -184,8 +183,8 @@ class Transformer(object):
         '''
         for l in range(layers)
             X = self._position_encoder(X) # (d_words, d_emb)
-            Z1 = self._masked_multihead_attention(X) # (d_words, d_emb)
-            Z2 = self._multihead_attention(Ye + Z1) # (d_words, d_emb), an additional layer for encoder attention
+            Z1 = self._masked_multihead_attention(X, l, maskindex) # (d_words, d_emb)
+            Z2 = self._multihead_attention(Ye + Z1, l) # (d_words, d_emb), an additional layer for encoder attention
             Z = self._layer_norm(Z1 + Z2)
             Y = self._position_wise_feed_forward(Z, self.W1d[:,:,l], self.W2d[:,:,l], self.b1d[:,l], self.b2d[:,l],) # (d_words, d_emb)
             X = Y 
@@ -221,6 +220,7 @@ class Transformer(object):
          weight matrix for training
         '''
         # encoder weigths
+# TODO: figure out how to reuse NN() to initialize and train the weights 
         self.W_Qe = 
         self.W_Ke = 
         self.W_Ve = 
