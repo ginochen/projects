@@ -1,7 +1,7 @@
 import numpy as np
 class Transformer(object):
     '''
-    The innovation of Transformer model is the use of bi-directional CNN (Convolutional Neural Network) 
+    The innovation of Transformer model (https://arxiv.org/pdf/1706.03762.pdf) is the use of bi-directional CNN (Convolutional Neural Network) 
     multi-head attention layers in the encoder and decoder stacks. Also the use of positional encoding 
     to mark the position of each word in a sentence.
 
@@ -163,6 +163,9 @@ class Transformer(object):
         return M_normalized
          
     def _position_wise_feed_forward(self, Z, W1, W2, b1, b2, l):
+        '''
+        two layers: a RelU and a linear
+        '''
         Y = max(Z*W1 + b1 0)*W2 + b2 # Z[:d_words, :d_emb], W1[:d_emb,:nodes,:layers], W2[:nodes,:emb,:layers]
         return Y
 
