@@ -206,7 +206,12 @@ class Transformer(object):
          return Y
 
     def _linear(self, X, W, b):
-         return X*W + b
+         '''
+         X[:d_words, :d_emb]
+         W[:d_emb, :d_words]
+         b[:d_words]
+         '''
+         return X * W + b
 
     def _softmax(self, X, axis=None):
          '''
@@ -233,32 +238,34 @@ class Transformer(object):
          weight matrix for training
         '''
         # encoder weigths
-# TODO: figure out how to reuse NN() to initialize and train the weights 
-        self.W_Qe = 
-        self.W_Ke = 
-        self.W_Ve = 
-        self.Wo_e = 
-        self.W1e = 
-        self.W2e = 
-        self.b1e = 
-        self.b2e = 
+        
+        self.W_Qe = np.random.randn(self.d_emb, self.d_k, self.layers, self.heads)
+        self.W_Ke = np.random.randn(self.d_emb, self.d_k, self.layers, self.heads)
+        self.W_Ve = np.random.randn(self.d_emb, self.d_k, self.layers, self.heads)
+        self.Wo_e = np.random.randn(self.heads*self.d_v, self.d_emb, self.layers)
+        self.W1e = np.random.randn(self.d_emb, self.nodes, self.layers)
+        self.W2e = np.random.randn(self.nodes, self.d_emb, self.layers)
+        self.b1e = np.random.randn(self.d_emb, self.layers)
+        self.b2e = np.random.randn(self.nodes, self.layers)
 
 
         # decoder weights
-        self.W_Qd = 
-        self.W_Kd = 
-        self.W_Vd = 
-        self.Wo_d = 
-        self.W1d = 
-        self.W2d = 
-        self.b1d = 
-        self.b2d = 
-        self.W_o = 
-        self.b_o = 
+        self.W_Qd = np.random.randn(self.d_emb, self.d_k, self.layers, self.heads)
+        self.W_Kd = np.random.randn(self.d_emb, self.d_k, self.layers, self.heads)
+        self.W_Vd = np.random.randn(self.d_emb, self.d_k, self.layers, self.heads)
+        self.Wo_d = np.random.randn(self.heads*self.d_v, self.d_emb, self.layers)
+        self.W1d = np.random.randn(self.d_emb, self.nodes, self.layers)
+        self.W2d = np.random.randn(self.nodes, self.d_emb, self.layers)
+        self.b1d = np.random.randn(self.d_emb, self.layers)
+        self.b2d = np.random.randn(self.nodes, self.layers)
+        self.W_o = np.random.randn(self.d_emb, self.d_words)
+        self.b_o = np.random.randn(self.d_words) 
 
     def run(self, args):
         # code to run a single input sequence and generate outputs
         # can use this function to both train and infer only
+
+# TODO: figure out how to reuse NN() to train the weights 
 
     def save_model(self):
         # save the model according to requirements
