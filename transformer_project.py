@@ -15,14 +15,14 @@ class Transformer(object):
     
     The helper() class is to compute NLP metrics and implement beam search.
     '''
-    def __init__(self, param):
+    def __init__(self):
         # initialise parameters here (so far this is a numpy pseudo code)
         self.d_emb = 512 # the embedding dimension
         self.d_words = 20 # number of words in a sentence, arbitrary for now
         self.d_k = 10 # dimension of query and key vectors, arbitrary for now
         self.d_v = self.d_k # dimension of value vector, arbitrary for now
     
-    def _position_function(self, d_words, d_emb):
+    def _position_function(self):
         P = np.empty((self.d_word, self.d_emb))
         for pos in range(self.d_words):
             for i in range(0, self.d_emb, 2):
@@ -117,7 +117,7 @@ class Transformer(object):
                   X, 
                   self.W_Qe[:, :, l, h], 
                   self.W_Ke[:, :, l, h], 
-                  self.W_Ve[:, :, l, h])), axis=2) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
+                  self.W_Ve[:, :, l, h])), axis=1) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
         Zo = Zi * self.Wo_e # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb, layers)
         return Zo
 
@@ -143,7 +143,7 @@ class Transformer(object):
             Zi = np.concatenate((Zi, self._attention(X, 
                   self.W_Qe[:, :, l, h], 
                   self.W_Ke[:, :, l, h], 
-                  self.W_Ve[:, :, l, h]) + mask), axis=2) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
+                  self.W_Ve[:, :, l, h]) + mask), axis=1) # each Z has dim (d_words x d_v) so (d_words, h*d_v), probably apply linked list here to accelerate
         Zo = Zi * self.Wo_d # (d_words, d_emb) = (d_words,h*d_v) * (h*d_v, d_emb)
         return Zo
 
