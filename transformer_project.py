@@ -96,7 +96,7 @@ class Transformer(object):
         Q = X * W_Q # (d_words x d_k) matrix, this part can be parallelized with word fed simultaneously
         K = X * W_K
         V = X * W_V # (d_words x d_v) matrix
-        Z = softmax((Q * K.T)/sqrt(d_k)) * V # (d_words x d_v) matrix, this is attention matrix
+        Z = self.softmax((Q * K.T)/np.sqrt(d_k)) * V # (d_words x d_v) matrix, this is attention matrix
         return Z
 
     def _masked_multihead_attention(self, currindex):
