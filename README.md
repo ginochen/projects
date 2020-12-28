@@ -1,4 +1,3 @@
-# Projects:
 
 - Sample code for the Transformer model using just NumPy:
   - `transformer_project.py` classes: 
